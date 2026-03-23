@@ -1,10 +1,11 @@
 name: Sync BlueSky Tiles
 
 on:
-  # Comment out with a # schedule and cron to deactivate automated execution
-  schedule:  
-    - cron: '*/30 * * * *'
   workflow_dispatch:         # This keeps the manual "Run workflow" button on Github active
+  # Comment out with a # schedule and cron to deactivate automated execution
+  #schedule:  
+  #  - cron: '*/30 * * * *'
+
 
 jobs:
   build:
