@@ -1,4 +1,5 @@
 import os
+import re
 import requests
 from atproto import Client
 
@@ -11,58 +12,70 @@ def sync_tiles():
 	client = Client()
 	try:
 		client.login(HANDLE, PASSWORD)
-		print(f"Logged in as {HANDLE}")
+		print(f"Successfully logged in as {HANDLE}")
 	except Exception as e:
 		print(f"Login failed: {e}")
 		return
 
-	# 2. Search for posts from YOU with the hashtag prefix
-	# We search specifically for your posts to avoid strangers' images
-	search_query = f"from:{HANDLE} #map_"
-	print(f"Searching for: {search_query}")
+	# 2. Search for the text "map_" in your posts. 
+	# This is more reliable than strict hashtag filtering.
+	search_query = f"from:{HANDLE} map_"
+	print(f"Searching BlueSky for: {search_query}")
 	
 	try:
-		results = client.app.bsky.feed.search_posts(params={'q': search_query})
+		# We fetch the latest posts containing your search string
+		results = client.app.bsky.feed.search_posts(params={'q': search_query, 'sort': 'latest'})
 	except Exception as e:
 		print(f"Search failed: {e}")
 		return
 
+	if not results.posts:
+		print("No posts found matching the criteria.")
+		return
+
 	for post in results.posts:
-		# Extract the tag (e.g., map_0_1_1)
-		map_tag = next((t['tag'] for t in post.record.tags if t['tag'].startswith('map_')), None)
+		post_text = post.record.text
+		print(f"Processing post: '{post_text[:50]}...'")
+
+		# 3. Use Regex to find the pattern map_Z_X_Y
+		# This matches map_ followed by three groups of numbers
+		match = re.search(r'map_(\d+)_(\d+)_(\d+)', post_text)
 		
-		if not map_tag:
+		if not match:
+			print("No coordinate pattern found in this post text. Skipping.")
 			continue
 
-		# Parse coordinates
-		try:
-			parts = map_tag.split('_')
-			z, x, y = parts[1], parts[2], parts[3]
-		except (IndexError, ValueError):
-			print(f"Skipping invalid tag: {map_tag}")
-			continue
+		# Extract coordinates from the regex match groups
+		z, x, y = match.groups()
+		print(f"Found tile coordinates: Z={z}, X={x}, Y={y}")
 
-		# Get the first image in the post
+		# 4. Check for attached images
 		if not post.embed or not hasattr(post.embed, 'images') or not post.embed.images:
+			print("Post found but no image is attached. Skipping.")
 			continue
 			
 		image_url = post.embed.images[0].fullsize
 		
-		# 3. Create folder structure: tiles/z/x/
+		# 5. Create folder structure: tiles/z/x/
 		target_dir = os.path.join(BASE_TILE_DIR, z, x)
 		os.makedirs(target_dir, exist_ok=True)
 		
-		# Save as y.jpg (matching your JS logic)
+		# Save as y.jpg (matching your Leaflet JS logic)
 		target_path = os.path.join(target_dir, f"{y}.jpg")
 
-		# 4. Download if the file is new
+		# 6. Download if the file is new
 		if not os.path.exists(target_path):
-			print(f"Found new tile! Downloading {z}/{x}/{y}...")
-			img_data = requests.get(image_url).content
-			with open(target_path, 'wb') as f:
-				f.write(img_data)
+			print(f"Downloading new tile to: {target_path}")
+			try:
+				img_data = requests.get(image_url).content
+				with open(target_path, 'wb') as f:
+					f.write(img_data)
+				print("Download complete.")
+			except Exception as e:
+				print(f"Failed to download image: {e}")
 		else:
-			print(f"Tile {z}/{x}/{y} already exists. Skipping.")
+			print(f"Tile {z}/{x}/{y} already exists in repository. Skipping.")
 
 if __name__ == "__main__":
 	sync_tiles()
+	print("Sync process finished.")
