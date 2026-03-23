@@ -10,14 +10,14 @@ BASE_TILE_DIR = "tiles"
 def sync_tiles():
 	client = Client()
 	try:
-		# Login returns a session object
-		profile = client.login(HANDLE, PASSWORD)
+		# 1. Login to establish the session
+		client.login(HANDLE, PASSWORD)
 		print(f"--- DEBUG: Logged in as {HANDLE} ---")
 		
-		# Access the JWT (token) from the session
-		session_token = profile.access_jwt
+		# 2. Correct way to get the JWT token from the client's session
+		session_token = client.get_session().access_jwt
 	except Exception as e:
-		print(f"--- ERROR: Login failed: {e} ---")
+		print(f"--- ERROR: Login/Session failed: {e} ---")
 		return
 
 	print(f"--- DEBUG: Fetching author feed for {HANDLE} ---")
@@ -31,7 +31,6 @@ def sync_tiles():
 
 	for item in feed:
 		post = item.post
-		# Check if post has text and the required map pattern
 		if not hasattr(post.record, 'text'):
 			continue
 			
@@ -43,20 +42,19 @@ def sync_tiles():
 
 		z, x, y = match.groups()
 		
-		# Ensure the post actually has an image embed
+		# Double check that this post actually has images
 		if not (hasattr(post.record, 'embed') and hasattr(post.record.embed, 'images')):
-			print(f"--- DEBUG: map_{z}_{x}_{y} found but no images in record. ---")
 			continue
 			
-		# Get the CID (Content Identifier) for the first image blob
+		# Extract the Blob reference (CID)
 		blob_ref = post.record.embed.images[0].image.ref
 		author_did = post.author.did
 		
-		# Construction of the direct 'getBlob' URL
+		# Construct the direct Blob storage URL
 		blob_url = f"https://bsky.social/xrpc/com.atproto.sync.getBlob?did={author_did}&cid={blob_ref}"
 		
 		try:
-			# Use the session token to authorize the download of the raw file
+			# Request the RAW file using the session token
 			img_response = requests.get(blob_url, headers={'Authorization': f'Bearer {session_token}'})
 			
 			if img_response.status_code != 200:
