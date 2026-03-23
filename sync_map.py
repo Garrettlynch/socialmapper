@@ -1,96 +1,94 @@
 import os
 import re
 import requests
-from atproto import Client
 
 HANDLE = os.getenv('BSKY_HANDLE')
 PASSWORD = os.getenv('BSKY_PASSWORD')
 BASE_TILE_DIR = "tiles"
 
 def sync_tiles():
-	client = Client()
+	print(f"--- DEBUG: Starting sync for {HANDLE} ---")
+	
+	# 1. Direct Login via XRPC to get a JWT
+	login_url = "https://bsky.social/xrpc/com.atproto.server.createSession"
 	try:
-		# 1. Login to establish the session
-		client.login(HANDLE, PASSWORD)
-		print(f"--- DEBUG: Logged in as {HANDLE} ---")
-		
-		# 2. Use export_session() to get the JWT reliably
-		session = client.export_session()
-		session_token = session.access_jwt
-		print("--- DEBUG: Session token successfully retrieved ---")
-		
+		login_resp = requests.post(login_url, json={"identifier": HANDLE, "password": PASSWORD})
+		login_resp.raise_for_status()
+		session_data = login_resp.json()
+		access_jwt = session_data['accessJwt']
+		user_did = session_data['did']
+		print("--- DEBUG: Login successful, JWT retrieved ---")
 	except Exception as e:
-		print(f"--- ERROR: Login/Session failed: {e} ---")
+		print(f"--- ERROR: Direct Login failed: {e} ---")
 		return
 
-	print(f"--- DEBUG: Fetching author feed for {HANDLE} ---")
+	# 2. Fetch Feed via XRPC
+	feed_url = "https://bsky.social/xrpc/app.bsky.feed.getAuthorFeed"
+	headers = {"Authorization": f"Bearer {access_jwt}"}
 	try:
-		response = client.get_author_feed(actor=HANDLE, limit=30)
-		feed = response.feed
+		feed_resp = requests.get(feed_url, params={"actor": HANDLE, "limit": 30}, headers=headers)
+		feed_resp.raise_for_status()
+		feed = feed_resp.json().get('feed', [])
 		print(f"--- DEBUG: Found {len(feed)} items in feed ---")
 	except Exception as e:
-		print(f"--- ERROR: Failed to fetch feed: {e} ---")
+		print(f"--- ERROR: Feed fetch failed: {e} ---")
 		return
 
 	for item in feed:
-		post = item.post
-		if not hasattr(post.record, 'text'):
-			continue
-			
-		post_text = post.record.text
-		match = re.search(r'map_(\d+)_(\d+)_(\d+)', post_text)
+		post = item.get('post', {})
+		record = post.get('record', {})
+		post_text = record.get('text', '')
 		
+		match = re.search(r'map_(\d+)_(\d+)_(\d+)', post_text)
 		if not match:
 			continue
 
 		z, x, y = match.groups()
 		
-		# Navigate the record to find images
-		if not (hasattr(post.record, 'embed') and hasattr(post.record.embed, 'images')):
+		# Navigate the JSON structure for images
+		embed = record.get('embed', {})
+		images = embed.get('images', [])
+		
+		if not images:
 			continue
 			
-		blob_ref = post.record.embed.images[0].image.ref
-		author_did = post.author.did
+		# Get the CID (Content ID) of the blob
+		blob_ref = images[0].get('image', {}).get('ref', {}).get('$link')
+		if not blob_ref:
+			continue
 		
-		blob_url = f"https://bsky.social/xrpc/com.atproto.sync.getBlob?did={author_did}&cid={blob_ref}"
-		
+		# 3. Download the Raw Blob
+		blob_url = "https://bsky.social/xrpc/com.atproto.sync.getBlob"
 		try:
-			# Request the RAW file using the session token
-			img_response = requests.get(blob_url, headers={'Authorization': f'Bearer {session_token}'})
+			blob_params = {"did": user_did, "cid": blob_ref}
+			img_resp = requests.get(blob_url, params=blob_params, headers=headers)
 			
-			if img_response.status_code != 200:
-				print(f"--- ERROR: Failed to download blob {z}/{x}/{y}. Status: {img_response.status_code} ---")
+			if img_resp.status_code != 200:
+				print(f"--- ERROR: Blob {z}/{x}/{y} failed with status {img_resp.status_code} ---")
 				continue
 
-			content_type = img_response.headers.get('Content-Type', '')
-			
-			ext_map = {
-				'image/png': '.png',
-				'image/webp': '.webp',
-				'image/jpeg': '.jpg'
-			}
+			content_type = img_resp.headers.get('Content-Type', '')
+			ext_map = {'image/png': '.png', 'image/webp': '.webp', 'image/jpeg': '.jpg'}
 			extension = ext_map.get(content_type, '.jpg')
 			
 			target_dir = os.path.join(BASE_TILE_DIR, z, x)
 			os.makedirs(target_dir, exist_ok=True)
 			
-			target_path = os.path.join(target_dir, f"{y}{extension}")
-
-			# Remove old formats if they exist to prevent duplicates (e.g. remove .webp if we have .png)
+			# Clean up old formats
 			for old_ext in ['.png', '.webp', '.jpg', '.jpeg']:
 				old_path = os.path.join(target_dir, f"{y}{old_ext}")
-				if old_ext != extension and os.path.exists(old_path):
+				if os.path.exists(old_path) and old_ext != extension:
 					os.remove(old_path)
-					print(f"--- DEBUG: Removed old format: {old_path} ---")
 
-			if not os.path.exists(target_path):
-				print(f"--- ACTION: Downloading raw blob ({content_type}) to {target_path} ---")
-				with open(target_path, 'wb') as f:
-					f.write(img_response.content)
-			else:
-				print(f"--- DEBUG: Tile {z}/{x}/{y}{extension} already exists. ---")
+			target_path = os.path.join(target_dir, f"{y}{extension}")
+			
+			# We download even if it exists to ensure we have the newest transparent version
+			with open(target_path, 'wb') as f:
+				f.write(img_resp.content)
+			print(f"--- ACTION: Saved {target_path} ({content_type}) ---")
+				
 		except Exception as e:
-			print(f"--- ERROR: Blob download failed for {z}/{x}/{y}: {e} ---")
+			print(f"--- ERROR: Download failed for {z}/{x}/{y}: {e} ---")
 
 if __name__ == "__main__":
 	sync_tiles()
