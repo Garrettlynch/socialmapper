@@ -1,14 +1,14 @@
 name: Sync BlueSky Tiles
 
 on:
-	workflow_dispatch:         # This keeps the manual "Run workflow" button on Github active
-	# Comment out with a # schedule and cron to deactivate automated execution
-	#schedule:  
-	#  - cron: '*/30 * * * *'
+    workflow_dispatch:         # This keeps the manual "Run workflow" button on Github active
+    # Comment out with a # schedule and cron to deactivate automated execution
+    #schedule:  
+    #  - cron: '*/30 * * * *'
 
 
 permissions:
-	contents: write  # MANDATORY: Allows the bot to save images to your repo
+    contents: write  # MANDATORY: Allows the bot to save images to your repo
 
 jobs:
 	sync-tiles:
