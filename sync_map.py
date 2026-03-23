@@ -14,17 +14,14 @@ def sync_tiles():
 		client.login(HANDLE, PASSWORD)
 		print(f"--- DEBUG: Logged in as {HANDLE} ---")
 		
-		# 2. Access the JWT token from the internal session storage
-		# In most versions of atproto, it lives here:
-		session_token = client.me.session.access_jwt
+		# 2. Use export_session() to get the JWT reliably
+		session = client.export_session()
+		session_token = session.access_jwt
+		print("--- DEBUG: Session token successfully retrieved ---")
 		
 	except Exception as e:
-		# Fallback if the object structure is slightly different
-		try:
-			session_token = client.session.access_jwt
-		except:
-			print(f"--- ERROR: Could not extract session token: {e} ---")
-			return
+		print(f"--- ERROR: Login/Session failed: {e} ---")
+		return
 
 	print(f"--- DEBUG: Fetching author feed for {HANDLE} ---")
 	try:
@@ -48,6 +45,7 @@ def sync_tiles():
 
 		z, x, y = match.groups()
 		
+		# Navigate the record to find images
 		if not (hasattr(post.record, 'embed') and hasattr(post.record.embed, 'images')):
 			continue
 			
@@ -61,7 +59,7 @@ def sync_tiles():
 			img_response = requests.get(blob_url, headers={'Authorization': f'Bearer {session_token}'})
 			
 			if img_response.status_code != 200:
-				print(f"--- ERROR: Failed to download blob. Status: {img_response.status_code} ---")
+				print(f"--- ERROR: Failed to download blob {z}/{x}/{y}. Status: {img_response.status_code} ---")
 				continue
 
 			content_type = img_response.headers.get('Content-Type', '')
@@ -77,6 +75,13 @@ def sync_tiles():
 			os.makedirs(target_dir, exist_ok=True)
 			
 			target_path = os.path.join(target_dir, f"{y}{extension}")
+
+			# Remove old formats if they exist to prevent duplicates (e.g. remove .webp if we have .png)
+			for old_ext in ['.png', '.webp', '.jpg', '.jpeg']:
+				old_path = os.path.join(target_dir, f"{y}{old_ext}")
+				if old_ext != extension and os.path.exists(old_path):
+					os.remove(old_path)
+					print(f"--- DEBUG: Removed old format: {old_path} ---")
 
 			if not os.path.exists(target_path):
 				print(f"--- ACTION: Downloading raw blob ({content_type}) to {target_path} ---")
