@@ -2,8 +2,8 @@ name: Sync BlueSky Tiles
 
 on:
   schedule:
-    - cron: '*/30 * * * *' # This tells GitHub to run every 30 minutes
-  workflow_dispatch:      # This adds a "Run Now" button so you can test it immediately
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
 
 jobs:
   build:
@@ -14,9 +14,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5  # Updated to v5
         with:
-          python_version: '3.10'
+          python-version: '3.10'      # Fixed: uses dash, not underscore
 
       - name: Install Dependencies
         run: pip install -r requirements.txt
@@ -32,4 +32,5 @@ jobs:
           git config --global user.name "GitHub Action Bot"
           git config --global user.email "actions@github.com"
           git add tiles/
+          # This line checks if there are actually changes before trying to commit
           git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-sync new tiles from BlueSky" && git push)
