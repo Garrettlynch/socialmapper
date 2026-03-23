@@ -78,40 +78,48 @@ var center = map.unproject([CONFIG.tileSize / 2, CONFIG.tileSize / 2], 0);
 map.setView(center, 0);
 
 L.TileLayer.CustomSync = L.TileLayer.extend({
-	getTileUrl: function(coords) {
-		// 20 is the number of tiles wide/high at Zoom 0
-		const worldSizeAtZoom = CONFIG.worldSize * Math.pow(2, coords.z);
+	createTile: function(coords, done) {
+		var tile = document.createElement('img');
+		tile.classList.add('leaflet-tile'); 
+		tile.style.visibility = 'hidden';
 
-		// The Modulo operator (%) handles the wrap-around logic
-		// We use (x % n + n) % n to handle negative numbers (panning left/up)
+		// Formats to try in order of preference
+		const formats = ['.png', '.webp', '.jpg', '.jpeg'];
+		let formatIndex = 0;
+
+		// Wrapping logic for infinite panning
+		const worldSizeAtZoom = CONFIG.worldSize * Math.pow(2, coords.z);
 		const x = ((coords.x % worldSizeAtZoom) + worldSizeAtZoom) % worldSizeAtZoom;
 		const y = ((coords.y % worldSizeAtZoom) + worldSizeAtZoom) % worldSizeAtZoom;
 
-		return `tiles/${coords.z}/${x}/${y}.jpg`;
-	},
-	createTile: function(coords, done) {
-		var tile = document.createElement('img');
-		tile.classList.add('leaflet-tile'); // Ensure the CSS class is applied
-		tile.style.visibility = 'hidden';   // Hide the img element specifically
+		const tryLoad = () => {
+			if (formatIndex < formats.length) {
+				const ext = formats[formatIndex];
+				formatIndex++;
+				tile.src = `tiles/${coords.z}/${x}/${y}${ext}`;
+			} else {
+				// If all formats fail, try the default tile
+				if (tile.src.indexOf(CONFIG.defaultTile) === -1) {
+					tile.src = CONFIG.defaultTile;
+				} else {
+					// Even default failed, hide and finish
+					tile.style.visibility = 'hidden';
+					done(null, tile);
+				}
+			}
+		};
 
 		tile.onload = function() { 
 			tile.style.visibility = 'visible';
+			tile.classList.add('leaflet-tile-loaded');
 			done(null, tile);
 		};
 
 		tile.onerror = function() {
-			// Check if we are already trying the default to avoid infinite loops
-			if (tile.src.indexOf(CONFIG.defaultTile) === -1) {
-				tile.src = CONFIG.defaultTile;
-			} else {
-				// If even the default fails, keep it hidden so the spinner stays
-				tile.style.visibility = 'hidden';
-				done(null, tile);
-			}
+			tryLoad();
 		};
 
-		tile.src = this.getTileUrl(coords);
-
+		tryLoad();
 		return tile;
 	}
 });
