@@ -12,6 +12,8 @@ def sync_tiles():
 	try:
 		client.login(HANDLE, PASSWORD)
 		print(f"--- DEBUG: Logged in as {HANDLE} ---")
+		# We need this token to verify our 'Blob' request
+		session_token = client.get_session_token()
 	except Exception as e:
 		print(f"--- ERROR: Login failed: {e} ---")
 		return
@@ -37,31 +39,27 @@ def sync_tiles():
 
 		z, x, y = match.groups()
 		
-		images = []
-		if post.embed:
-			if hasattr(post.embed, 'images'):
-				images = post.embed.images
-			elif hasattr(post.embed, 'record') and hasattr(post.embed.record, 'embeds'):
-				for e in post.embed.record.embeds:
-					if hasattr(e, 'images'):
-						images = e.images
-
-		if not images:
+		# Navigate the data structure to find the 'Blob' reference
+		if not (post.record.embed and hasattr(post.record.embed, 'images')):
 			continue
 			
-		image_url = images[0].fullsize
+		# Get the first image blob
+		blob_ref = post.record.embed.images[0].image.ref
+		author_did = post.author.did
+		
+		# Construct the direct 'getBlob' URL
+		blob_url = f"https://bsky.social/xrpc/com.atproto.sync.getBlob?did={author_did}&cid={blob_ref}"
 		
 		try:
-			img_response = requests.get(image_url)
+			# We MUST include the Authorization header to get the original file
+			img_response = requests.get(blob_url, headers={'Authorization': f'Bearer {session_token}'})
 			content_type = img_response.headers.get('Content-Type', '')
 			
-			# Map MIME types to extensions
 			ext_map = {
 				'image/png': '.png',
 				'image/webp': '.webp',
 				'image/jpeg': '.jpg'
 			}
-			# Default to .jpg if BlueSky sends something unexpected
 			extension = ext_map.get(content_type, '.jpg')
 			
 			target_dir = os.path.join(BASE_TILE_DIR, z, x)
@@ -70,13 +68,13 @@ def sync_tiles():
 			target_path = os.path.join(target_dir, f"{y}{extension}")
 
 			if not os.path.exists(target_path):
-				print(f"--- ACTION: Downloading {content_type} to {target_path} ---")
+				print(f"--- ACTION: Downloading Blob ({content_type}) to {target_path} ---")
 				with open(target_path, 'wb') as f:
 					f.write(img_response.content)
 			else:
 				print(f"--- DEBUG: Tile {z}/{x}/{y}{extension} already exists. ---")
 		except Exception as e:
-			print(f"--- ERROR: Download failed for {z}/{x}/{y}: {e} ---")
+			print(f"--- ERROR: Blob download failed for {z}/{x}/{y}: {e} ---")
 
 if __name__ == "__main__":
 	sync_tiles()
