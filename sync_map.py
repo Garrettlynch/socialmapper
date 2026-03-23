@@ -67,14 +67,26 @@ def sync_tiles():
 				print(f"--- ERROR: Blob {z}/{x}/{y} failed with status {img_resp.status_code} ---")
 				continue
 
-			content_type = img_resp.headers.get('Content-Type', '')
-			ext_map = {'image/png': '.png', 'image/webp': '.webp', 'image/jpeg': '.jpg'}
-			extension = ext_map.get(content_type, '.jpg')
+			# --- NEW DETECTION LOGIC START ---
+			# Peek at the first few bytes (the "Magic Number") to identify the real file type
+			file_content = img_resp.content
+			header = file_content[:8]
+			
+			if header.startswith(b'\x89PNG\r\n\x1a\n'):
+				extension = '.png'
+				detected_type = 'image/png'
+			elif header.startswith(b'RIFF') and header[8:12] == b'WEBP':
+				extension = '.webp'
+				detected_type = 'image/webp'
+			else:
+				extension = '.jpg'
+				detected_type = 'image/jpeg'
+			# --- NEW DETECTION LOGIC END ---
 			
 			target_dir = os.path.join(BASE_TILE_DIR, z, x)
 			os.makedirs(target_dir, exist_ok=True)
 			
-			# Clean up old formats
+			# Clean up old formats to avoid cluttering the repo
 			for old_ext in ['.png', '.webp', '.jpg', '.jpeg']:
 				old_path = os.path.join(target_dir, f"{y}{old_ext}")
 				if os.path.exists(old_path) and old_ext != extension:
@@ -82,10 +94,9 @@ def sync_tiles():
 
 			target_path = os.path.join(target_dir, f"{y}{extension}")
 			
-			# We download even if it exists to ensure we have the newest transparent version
 			with open(target_path, 'wb') as f:
-				f.write(img_resp.content)
-			print(f"--- ACTION: Saved {target_path} ({content_type}) ---")
+				f.write(file_content)
+			print(f"--- ACTION: Saved {target_path} (Detected: {detected_type}) ---")
 				
 		except Exception as e:
 			print(f"--- ERROR: Download failed for {z}/{x}/{y}: {e} ---")
