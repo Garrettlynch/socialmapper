@@ -1,6 +1,7 @@
 import os
 import re
 import requests
+import json
 from io import BytesIO
 from PIL import Image
 
@@ -30,7 +31,7 @@ def process_image(content, extension):
 	
 	# WebP and JPEG use 'quality', PNG is lossless by default
 	if fmt == 'WEBP':
-		img.save(output, format=fmt, lossless=True) # Change to quality=90 if you want smaller files
+		img.save(output, format=fmt, lossless=True)
 	elif fmt == 'JPEG':
 		img.save(output, format=fmt, quality=95)
 	else:
@@ -64,6 +65,9 @@ def sync_tiles():
 		print(f"--- ERROR: Feed fetch failed: {e} ---")
 		return
 
+	# TRACKER: To store coordinates for the animation
+	found_tiles = []
+
 	for item in feed:
 		post = item.get('post', {})
 		record = post.get('record', {})
@@ -73,7 +77,14 @@ def sync_tiles():
 		if not match:
 			continue
 
-		z, x, y = match.groups()
+		# Extract coordinates
+		z_str, x_str, y_str = match.groups()
+		z, x, y = int(z_str), int(x_str), int(y_str)
+		
+		# Add to tracker if not already added (to avoid duplicates from the feed)
+		if not any(t['z'] == z and t['x'] == x and t['y'] == y for t in found_tiles):
+			found_tiles.append({"z": z, "x": x, "y": y})
+
 		embed = record.get('embed', {})
 		images = embed.get('images', [])
 		if not images:
@@ -88,7 +99,6 @@ def sync_tiles():
 			if img_resp.status_code != 200:
 				continue
 
-			# Improved Detection (Magic Numbers)
 			file_content = img_resp.content
 			header = file_content[:12]
 			
@@ -101,10 +111,9 @@ def sync_tiles():
 			
 			final_content = process_image(file_content, extension)
 			
-			target_dir = os.path.join(BASE_TILE_DIR, z, x)
+			target_dir = os.path.join(BASE_TILE_DIR, str(z), str(x))
 			os.makedirs(target_dir, exist_ok=True)
 			
-			# Cleanup logic (removes any existing file with a different extension)
 			for ext in ['.png', '.webp', '.jpg', '.jpeg']:
 				old_path = os.path.join(target_dir, f"{y}{ext}")
 				if os.path.exists(old_path) and ext != extension:
@@ -117,6 +126,16 @@ def sync_tiles():
 				
 		except Exception as e:
 			print(f"--- ERROR: Processing failed for {z}/{x}/{y}: {e} ---")
+
+	# SAVE JSON: Write the latest.json after the loop finishes
+	if len(found_tiles) >= 1:
+		latest_data = {
+			"newest": found_tiles[0],
+			"previous": found_tiles[1] if len(found_tiles) > 1 else None
+		}
+		with open("latest.json", "w") as f:
+			json.dump(latest_data, f, indent=4)
+		print(f"--- ACTION: Updated latest.json with {len(found_tiles)} unique tiles found ---")
 
 if __name__ == "__main__":
 	sync_tiles()
