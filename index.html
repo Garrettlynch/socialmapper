@@ -74,8 +74,74 @@ var map = L.map('map', {
 });
 
 // calculate center based on tile size
-var center = map.unproject([CONFIG.tileSize / 2, CONFIG.tileSize / 2], 0);
-map.setView(center, 0);
+//var center = map.unproject([CONFIG.tileSize / 2, CONFIG.tileSize / 2], 0);
+//map.setView(center, 0);
+
+
+
+// Function to convert Tile X/Y to Lat/Lng for centering
+function getTileCenter(z, x, y)
+{
+	// multiply by tileSize to get the pixel center of the tile
+	const scale = Math.pow(2, z); 
+	const centerX = (x + 0.5) * CONFIG.tileSize;
+	const centerY = (y + 0.5) * CONFIG.tileSize;
+
+	// unproject converts those pixel coordinates into LatLng for the map
+	return map.unproject([centerX, centerY], z);
+}
+
+// fetch the latest tile data (the last two tile posts) and handle the intro animation
+fetch('latest.json')
+	.then(response => response.json())
+	.then(data => {
+		if (!data.newest) {
+			// fallback if no data is found
+			const fallback = map.unproject([CONFIG.tileSize / 2, CONFIG.tileSize / 2], 0);
+			map.setView(fallback, 0);
+			return;
+		}
+
+		const newestPoint = getTileCenter(data.newest.z, data.newest.x, data.newest.y);
+		
+		if (data.previous)
+		{
+			const oldPoint = getTileCenter(data.previous.z, data.previous.x, data.previous.y);
+			
+			// start map (centre) at the second last tile position
+			map.setView(oldPoint, data.previous.z);
+			
+			// wait for the initial tiles to fade in, then fly to the new one
+			setTimeout(() => {
+/* 
+				// cinematic movement (arc)
+				map.flyTo(newestPoint, data.newest.z, {
+					animate: true,
+					duration: 3.0, 
+					easeLinearity: 1.00, // How smooth the start/end is
+					noMoveStart: true  // Prevents the map from "jumping" at the start
+				});
+ */
+				// direct pan
+				map.panTo(newestPoint, {
+					animate: true,
+					duration: 3.0
+				});
+			}, 3000);
+		} else {
+			// if no previous history, just jump straight to the newest
+			map.setView(newestPoint, data.newest.z);
+		}
+	})
+	.catch(err => {
+		// fallback if latest.json fails to load
+		const fallback = map.unproject([CONFIG.tileSize / 2, CONFIG.tileSize / 2], 0);
+		map.setView(fallback, 0);
+	});
+
+
+
+
 
 L.TileLayer.CustomSync = L.TileLayer.extend({
 	createTile: function(coords, done) {
