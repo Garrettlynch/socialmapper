@@ -36,6 +36,6 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add tiles/
+          git add tiles/ latest.json
           git commit -m "Sync tiles from BlueSky" || exit 0
           git push
