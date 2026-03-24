@@ -113,20 +113,22 @@ fetch('latest.json')
 			
 			// wait for the initial tiles to fade in, then fly to the new one
 			setTimeout(() => {
-/* 
+
 				// cinematic movement (arc)
 				map.flyTo(newestPoint, data.newest.z, {
 					animate: true,
 					duration: 3.0, 
-					easeLinearity: 1.00, // How smooth the start/end is
+					easeLinearity: 0.1, // How smooth the start/end is
 					noMoveStart: true  // Prevents the map from "jumping" at the start
 				});
- */
+
+/* 
 				// direct pan
 				map.panTo(newestPoint, {
 					animate: true,
 					duration: 3.0
 				});
+ */
 			}, 3000);
 		} else {
 			// if no previous history, just jump straight to the newest
