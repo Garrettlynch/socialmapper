@@ -78,7 +78,6 @@ var map = L.map('map', {
 //map.setView(center, 0);
 
 
-
 // Function to convert Tile X/Y to Lat/Lng for centering
 function getTileCenter(z, x, y)
 {
@@ -90,6 +89,7 @@ function getTileCenter(z, x, y)
 	// unproject converts those pixel coordinates into LatLng for the map
 	return map.unproject([centerX, centerY], z);
 }
+
 
 // fetch the latest tile data (the last two tile posts) and handle the intro animation
 fetch('latest.json')
@@ -138,9 +138,6 @@ fetch('latest.json')
 		const fallback = map.unproject([CONFIG.tileSize / 2, CONFIG.tileSize / 2], 0);
 		map.setView(fallback, 0);
 	});
-
-
-
 
 
 L.TileLayer.CustomSync = L.TileLayer.extend({
