@@ -1,4 +1,4 @@
-echo "flask
+flask
 gunicorn
 requests
-Pillow" > requirements.txt
+Pillow
