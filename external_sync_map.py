@@ -5,7 +5,7 @@ import json
 import base64
 from io import BytesIO
 from PIL import Image
-from flask import Flask
+from flask import Flask, request
 
 app = Flask(__name__)
 
@@ -42,6 +42,12 @@ def upload_to_github(path, content, message):
 
 @app.route('/sync')
 def sync():
+	# add the security header check
+	secret = os.getenv('SYNC_SECRET')
+	if request.headers.get('X-Sync-Secret') != secret:
+		print("DEBUG: Unauthorized access attempt blocked.")
+		return "Unauthorized", 401
+
 	print("DEBUG: --- Sync Started ---")
 	print(f"DEBUG: Using Handle: {HANDLE}")
 	
