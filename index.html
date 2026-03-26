@@ -61,10 +61,11 @@ const CONFIG = {
 	tileSize: 512, 
 	worldSize: 20, 
 	defaultTile: 'tiles/default.png',
-	maxZoom: 10,
+	maxZoom: 5,
 	minZoom: 0
 };
 
+// create map
 var map = L.map('map', {
 	crs: L.CRS.Simple, 
 	minZoom: CONFIG.minZoom, 
@@ -95,22 +96,26 @@ function getTileCenter(z, x, y)
 fetch('latest.json')
 	.then(response => response.json())
 	.then(data => {
-		if (!data.newest) {
+
+		if (!data.newest)
+		{
 			// fallback if no data is found
 			const fallback = map.unproject([CONFIG.tileSize / 2, CONFIG.tileSize / 2], 0);
 			map.setView(fallback, 0);
 			return;
 		}
 
+		// newest tile
 		const newestPoint = getTileCenter(data.newest.z, data.newest.x, data.newest.y);
-		
+
+		// previous (second last) tile
 		if (data.previous)
 		{
 			const oldPoint = getTileCenter(data.previous.z, data.previous.x, data.previous.y);
-			
-			// start map (centre) at the second last tile position
+
+			// start map (centre) at the previous tile position
 			map.setView(oldPoint, data.previous.z);
-			
+
 			// wait for the initial tiles to fade in, then fly to the new one
 			setTimeout(() => {
 
@@ -118,20 +123,13 @@ fetch('latest.json')
 				map.flyTo(newestPoint, data.newest.z, {
 					animate: true,
 					duration: 3.0, 
-					easeLinearity: 0.1, // How smooth the start/end is
-					noMoveStart: true  // Prevents the map from "jumping" at the start
+					easeLinearity: 0.1, // how smooth the start/end is
+					noMoveStart: true   // stop the map from "jumping" at the start
 				});
 
-/* 
-				// direct pan
-				map.panTo(newestPoint, {
-					animate: true,
-					duration: 3.0
-				});
- */
 			}, 3000);
 		} else {
-			// if no previous history, just jump straight to the newest
+			// if no previous history, start at the newest tile position
 			map.setView(newestPoint, data.newest.z);
 		}
 	})
@@ -148,31 +146,13 @@ L.TileLayer.CustomSync = L.TileLayer.extend({
 		tile.classList.add('leaflet-tile'); 
 		tile.style.visibility = 'hidden';
 
-		// Formats to try in order of preference
-		const formats = ['.png', '.webp', '.jpg', '.jpeg'];
-		let formatIndex = 0;
-
-		// Wrapping logic for infinite panning
+		// wrapping logic for infinite panning
 		const worldSizeAtZoom = CONFIG.worldSize * Math.pow(2, coords.z);
 		const x = ((coords.x % worldSizeAtZoom) + worldSizeAtZoom) % worldSizeAtZoom;
 		const y = ((coords.y % worldSizeAtZoom) + worldSizeAtZoom) % worldSizeAtZoom;
 
-		const tryLoad = () => {
-			if (formatIndex < formats.length) {
-				const ext = formats[formatIndex];
-				formatIndex++;
-				tile.src = `tiles/${coords.z}/${x}/${y}${ext}`;
-			} else {
-				// If all formats fail, try the default tile
-				if (tile.src.indexOf(CONFIG.defaultTile) === -1) {
-					tile.src = CONFIG.defaultTile;
-				} else {
-					// Even default failed, hide and finish
-					tile.style.visibility = 'hidden';
-					done(null, tile);
-				}
-			}
-		};
+		// look for .webp files
+		const tileUrl = `tiles/${coords.z}/${x}/${y}.webp`;
 
 		tile.onload = function() { 
 			tile.style.visibility = 'visible';
@@ -181,15 +161,24 @@ L.TileLayer.CustomSync = L.TileLayer.extend({
 		};
 
 		tile.onerror = function() {
-			tryLoad();
+			// if the .webp tile is missing, show the default placeholder
+			if (tile.src !== window.location.origin + '/' + CONFIG.defaultTile && !tile.src.includes(CONFIG.defaultTile))
+			{
+				tile.src = CONFIG.defaultTile;
+			} else {
+				// if even the default fails, hide it
+				tile.style.visibility = 'hidden';
+				done(null, tile);
+			}
 		};
 
-		tryLoad();
+		tile.src = tileUrl;
 		return tile;
 	}
 });
 
-// define the Debug Grid Layer
+
+// define the admin grid layer (to see coordinates)
 L.DebugGrid = L.GridLayer.extend({
 	createTile: function (coords) {
 		const tile = document.createElement('div');
@@ -205,7 +194,8 @@ L.DebugGrid = L.GridLayer.extend({
 	}
 });
 
-// create an instance of the debug grid
+
+// create an instance of the admin grid
 var debugGrid = new L.DebugGrid({
 	tileSize: CONFIG.tileSize,
 	noWrap: false
