@@ -3,6 +3,7 @@ import re
 import requests
 import json
 import base64
+import datetime
 from io import BytesIO
 from PIL import Image
 from flask import Flask, request
@@ -45,11 +46,11 @@ def upload_to_github(path, content, message):
 def sync():
 	# Security check
 	if request.headers.get('X-Sync-Secret') != RENDER_PASSWORD:
-		# Log the attempt so Render sees activity even on failure
 		print("DEBUG: Unauthorized ping received.")
 		return "Unauthorized", 401
 
-	print("DEBUG: --- Sync Started ---")
+	now = datetime.datetime.now()
+	print(f"DEBUG: --- Sync Started at {now} ---")
 	
 	# 1. Login to BlueSky
 	login_url = "https://bsky.social/xrpc/com.atproto.server.createSession"
@@ -61,9 +62,10 @@ def sync():
 	session = login_resp.json()
 	headers = {"Authorization": f"Bearer {session['accessJwt']}"}
 
-	# 2. Fetch Feed
+	# 2. Fetch Feed - Increased limit to 20
+	print("DEBUG: Fetching last 20 posts...")
 	feed_url = "https://bsky.social/xrpc/app.bsky.feed.getAuthorFeed"
-	feed_resp = requests.get(feed_url, params={"actor": HANDLE, "limit": 10}, headers=headers)
+	feed_resp = requests.get(feed_url, params={"actor": HANDLE, "limit": 20}, headers=headers)
 	feed = feed_resp.json().get('feed', [])
 
 	for item in feed:
@@ -72,7 +74,6 @@ def sync():
 		
 		if match:
 			z, x, y = match.groups()
-			# --- Updated to .webp extension ---
 			tile_path = f"tiles/{z}/{x}/{y}.webp"
 			
 			# Check GitHub for the .webp file
@@ -88,10 +89,8 @@ def sync():
 				blob_url = "https://bsky.social/xrpc/com.atproto.sync.getBlob"
 				img_data = requests.get(blob_url, params={"did": session['did'], "cid": blob_ref}, headers=headers).content
 				
-				# Process Image
 				img = Image.open(BytesIO(img_data))
 				
-				# Handle transparency: keep as RGBA if it has it, else convert to RGB
 				if img.mode in ('RGBA', 'LA') or (img.mode == 'P' and 'transparency' in img.info):
 					img = img.convert('RGBA')
 				else:
@@ -99,16 +98,19 @@ def sync():
 					
 				img = img.resize((512, 512), Image.Resampling.LANCZOS)
 				
-				# Save as WebP with Quality 80
+				# Explicitly save as WebP
 				buffer = BytesIO()
 				img.save(buffer, format="WEBP", quality=80)
 				
 				upload_to_github(tile_path, buffer.getvalue(), f"New tile: {z}/{x}/{y} (WebP)")
+				# We return here to process one tile per cron run to avoid timeouts
 				return f"Success: {tile_path} synced.", 200
 			else:
-				print(f"DEBUG: Tile {tile_path} already exists. Skipping duplicate hashtag.")
+				print(f"DEBUG: Tile {tile_path} already exists. Skipping.")
 
+	print("DEBUG: No new tiles found in the last 20 posts.")
 	return "No new tiles found.", 200
 
 if __name__ == "__main__":
-	app.run(host='0.0.0.0', port=5000)
+	# Render standard port
+	app.run(host='0.0.0.0', port=10000)
