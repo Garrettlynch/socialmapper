@@ -91,10 +91,7 @@ body, html
 	text-align: center;
 	background-color: transparent;
 	outline: 1px solid rgba(0, 255, 0, 0.3); /* Faint neon green border */
-	font-family: 'Courier New', Courier, monospace;
-	font-weight: bold;
-	font-size: 14px;
-	color: #00ff00;
+
 	text-shadow: 1px 1px 2px #000; /* Makes text readable over bright images */
 	pointer-events: none; /* Allows clicks to pass through to the map below */
 }
@@ -102,6 +99,10 @@ body, html
 .debug-tile div
 {
 	padding: 20px;
+	font-family: 'Courier New', Courier, monospace;
+	font-weight: bold;
+	color: #00ff00;
+	font-size: 18px;
 }
 
 /* Optional: Different color for the Zoom level to make it pop */
