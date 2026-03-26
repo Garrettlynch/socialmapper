@@ -45,6 +45,8 @@ def upload_to_github(path, content, message):
 def sync():
 	# Security check
 	if request.headers.get('X-Sync-Secret') != RENDER_PASSWORD:
+		# Log the attempt so Render sees activity even on failure
+		print("DEBUG: Unauthorized ping received.")
 		return "Unauthorized", 401
 
 	print("DEBUG: --- Sync Started ---")
