@@ -62,13 +62,20 @@ def sync():
 	session = login_resp.json()
 	headers = {"Authorization": f"Bearer {session['accessJwt']}"}
 
-	# 2. Fetch Feed - Increased limit to 20
+	# 2. Fetch Feed
 	print("DEBUG: Fetching last 20 posts...")
 	feed_url = "https://bsky.social/xrpc/app.bsky.feed.getAuthorFeed"
 	feed_resp = requests.get(feed_url, params={"actor": HANDLE, "limit": 20}, headers=headers)
 	feed = feed_resp.json().get('feed', [])
 
+	tiles_synced = 0
+	max_batch = 5
+
 	for item in feed:
+		if tiles_synced >= max_batch:
+			print(f"DEBUG: Reached batch limit of {max_batch}. Stopping for this run.")
+			break
+
 		text = item['post']['record'].get('text', '')
 		match = re.search(r'map_(\d+)_(\d+)_(\d+)', text)
 		
@@ -98,18 +105,16 @@ def sync():
 					
 				img = img.resize((512, 512), Image.Resampling.LANCZOS)
 				
-				# Explicitly save as WebP
 				buffer = BytesIO()
 				img.save(buffer, format="WEBP", quality=80)
 				
-				upload_to_github(tile_path, buffer.getvalue(), f"New tile: {z}/{x}/{y} (WebP)")
-				# We return here to process one tile per cron run to avoid timeouts
-				return f"Success: {tile_path} synced.", 200
+				if upload_to_github(tile_path, buffer.getvalue(), f"New tile: {z}/{x}/{y} (WebP)"):
+					tiles_synced += 1
 			else:
 				print(f"DEBUG: Tile {tile_path} already exists. Skipping.")
 
-	print("DEBUG: No new tiles found in the last 20 posts.")
-	return "No new tiles found.", 200
+	print(f"DEBUG: Sync complete. Total tiles added: {tiles_synced}")
+	return f"Sync complete. {tiles_synced} tiles added.", 200
 
 if __name__ == "__main__":
 	# Render standard port
