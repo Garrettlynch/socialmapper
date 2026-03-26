@@ -43,7 +43,7 @@ def upload_to_github(path, content, message):
 @app.route('/sync')
 def sync():
 	# add the security header check
-	secret = os.getenv('SYNC_SECRET')
+	secret = os.getenv('RENDER_PASSWORD')
 	if request.headers.get('X-Sync-Secret') != secret:
 		print("DEBUG: Unauthorized access attempt blocked.")
 		return "Unauthorized", 401
