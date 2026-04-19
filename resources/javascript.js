@@ -117,6 +117,20 @@ function showAlert(message)
 
 
 
+/* Close a modal if user clicks outside of the modal */
+window.addEventListener('click', function(event) {
+	const adminModal = document.getElementById('admin-modal');
+	
+	// Only run if the modal is actually open (display is block)
+	if (adminModal.style.display === 'block') {
+		// If the user clicked the darkened background (the modal wrapper)
+		if (event.target === adminModal) {
+			toggleAdminModal();
+		}
+	}
+});
+
+
 
 (function() {
 
@@ -183,9 +197,8 @@ function showAlert(message)
 				const passwordInput = document.querySelector('input[name="password"]').value;
 				const errorSpan = document.querySelector('.error');
 
-				// Replace with your generated SHA-256 hash
-				// Example: The hash for "mapadmin2026"
-				const correctHash = "8ba526311bd36f0eb139dc5b8594482fc69cbec1162d3301aff04483c53f2286";
+				// SHA-256 hash
+				const correctHash = "899e551208ac9e39f16ac939445463e398d6ab037444877f3962abafe9d49012";
 				const enteredHash = await hashPassword(passwordInput);
 
 				if (enteredHash === correctHash)
@@ -213,9 +226,3 @@ function showAlert(message)
 	});
 
 })();
-
-
-
-
-
-
