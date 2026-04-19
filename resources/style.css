@@ -24,7 +24,32 @@ body, html
 
 #map
 {
-	background-color: #3a3a3a;
+/* 
+background-color: #3a3a3a;
+background-color: transparent;
+background: 
+	repeating-linear-gradient(0deg, #999999 0px 1px, transparent 1px 15px), 
+	repeating-linear-gradient(90deg, #999999 0px 1px, transparent 1px 15px);
+ */
+
+
+/* 
+background-color: rgba(15, 10, 20, 1.0);
+background-image: 
+	radial-gradient(circle, transparent 20%, rgba(15, 10, 20, 0.9) 20%, rgba(15, 10, 20, 1.0) 80%, transparent 80%, transparent), 
+	radial-gradient(circle, transparent 20%, rgba(15, 10, 20, 1.0) 20%, rgba(15, 10, 20, 0.8) 80%, transparent 80%, transparent), 
+	linear-gradient(rgba(255, 255, 255, 0.4) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.3) 1px, rgba(15, 10, 20, 0.3) 1px);
+ */
+
+background-color: rgba(16.5, 16.5, 18.8, 1.0);
+background-image: 
+	radial-gradient(circle, transparent 20%, rgba(16.5, 16.5, 18.8, 0.9) 20%, rgba(16.5, 16.5, 18.8, 1.0) 80%, transparent 80%, transparent), 
+	radial-gradient(circle, transparent 20%, rgba(16.5, 16.5, 18.8, 1.0) 20%, rgba(16.5, 16.5, 18.8, 0.8) 80%, transparent 80%, transparent), 
+	linear-gradient(rgba(255, 255, 255, 0.4) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.3) 1px, rgba(16.5, 16.5, 18.8, 0.3) 1px);
+background-position: 0 0, 25px 25px, 0 -1px, -1px 0;
+background-size: 100px 100px, 70px 73px, 25px 25px, 16px 16px;
+background-repeat: repeat, repeat, repeat, repeat;
+
 	height: 100vh;
 	width: 100vw;
 }
@@ -53,23 +78,32 @@ body, html
 	font-family: sans-serif;
 }
 
+
+.leaflet-tile-container {
+	/* Prevents the browser from hiding "overflow" tiles too early */
+	will-change: transform; 
+}
+
 .leaflet-tile
 {
 	/* Simple CSS spinner using an SVG data URI */
 	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='38' height='38' viewBox='0 0 38 38' stroke='%23007bff'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg transform='translate(1 1)' stroke-width='2'%3E%3Ccircle stroke-opacity='0.5' cx='18' cy='18' r='18'/%3E%3Cpath d='M36 18c0-9.94-8.06-18-18-18'%3E%3CanimateTransform attributeName='transform' type='rotate' from='0 18 18' to='360 18 18' dur='1s' repeatCount='indefinite'/%3E%3C/path%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
 	background-repeat: no-repeat;
 	background-position: center;
-	background-color: #3a3a3a; /* A dark color so it doesn't flash white */
+	//background-color: #3a3a3a; /* A dark color so it doesn't flash white */
 	//visibility: hidden;
-	visibility: visible;
+	visibility: visible !important;
+	//transition: none !important;
+	opacity: 1 !important;
 }
 
 /* keep tiles invisible until they are loaded */
 .leaflet-tile-loaded
 {
-	opacity: 1;
+	opacity: 1 !important;
+	//visibility: visible !important;
 	background-image: none !important;
-	transition: opacity 0.3s;
+	//transition: opacity 0.3s;
 }
 
 .leaflet-tile:not(.leaflet-tile-loaded)
