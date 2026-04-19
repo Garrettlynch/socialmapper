@@ -33,13 +33,13 @@ background:
  */
 
 
-/* 
+/*
 background-color: rgba(15, 10, 20, 1.0);
 background-image: 
 	radial-gradient(circle, transparent 20%, rgba(15, 10, 20, 0.9) 20%, rgba(15, 10, 20, 1.0) 80%, transparent 80%, transparent), 
 	radial-gradient(circle, transparent 20%, rgba(15, 10, 20, 1.0) 20%, rgba(15, 10, 20, 0.8) 80%, transparent 80%, transparent), 
 	linear-gradient(rgba(255, 255, 255, 0.4) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.3) 1px, rgba(15, 10, 20, 0.3) 1px);
- */
+*/
 
 background-color: rgba(16.5, 16.5, 18.8, 1.0);
 background-image: 
