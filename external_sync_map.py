@@ -70,6 +70,7 @@ def sync():
 
 	tiles_synced = 0
 	max_batch = 5
+	found_coords = []
 
 	for item in feed:
 		if tiles_synced >= max_batch:
@@ -81,6 +82,14 @@ def sync():
 		
 		if match:
 			z, x, y = match.groups()
+			
+			# Collect coordinates for latest.json
+			if not any(c['z'] == z and c['x'] == x and c['y'] == y for c in found_coords):
+				found_coords.append({"z": z, "x": x, "y": y})
+
+			if tiles_synced >= max_batch:
+				continue # Keep scanning for coordinates even if batch limit hit
+			
 			tile_path = f"tiles/{z}/{x}/{y}.webp"
 			
 			# Check GitHub for the .webp file
@@ -112,6 +121,16 @@ def sync():
 					tiles_synced += 1
 			else:
 				print(f"DEBUG: Tile {tile_path} already exists. Skipping.")
+
+	# 3. Write latest.json to GitHub
+	if found_coords:
+		latest_json_data = {
+			"newest": found_coords[0],
+			"previous": found_coords[1] if len(found_coords) > 1 else found_coords[0]
+		}
+		json_bytes = json.dumps(latest_json_data, indent=2).encode('utf-8')
+		upload_to_github("latest.json", json_bytes, "Update latest.json metadata")
+
 
 	print(f"DEBUG: Sync complete. Total tiles added: {tiles_synced}")
 	return f"Sync complete. {tiles_synced} tiles added.", 200
