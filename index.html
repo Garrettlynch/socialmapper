@@ -19,6 +19,9 @@
 </head>
 <body>
 
+	
+
+
 	<div id="map"></div>
 
 	<div id="alert-modal">
@@ -60,9 +63,12 @@
 const CONFIG = {
 	tileSize: 512, 
 	worldSize: 20, 
-	defaultTile: 'tiles/default.png',
+	defaultTileURL: 'tiles/default-', //'tiles/default.png',
 	maxZoom: 5,
-	minZoom: 0
+	minZoom: 0,
+	padding: 0.5,
+	fadeAnimation: false,
+	keepBuffer: 8
 };
 
 // create map
@@ -164,7 +170,10 @@ L.TileLayer.CustomSync = L.TileLayer.extend({
 			// if the .webp tile is missing, show the default placeholder
 			if (tile.src !== window.location.origin + '/' + CONFIG.defaultTile && !tile.src.includes(CONFIG.defaultTile))
 			{
-				tile.src = CONFIG.defaultTile;
+				// random images from a set
+				let num = Math.ceil(Math.random() * 10);
+				tile.src = CONFIG.defaultTileURL + num + '.webp';
+				console.log(tile.src);
 			} else {
 				// if even the default fails, hide it
 				tile.style.visibility = 'hidden';
@@ -206,7 +215,9 @@ var gameLayer = new L.TileLayer.CustomSync('', {
 	tileSize: CONFIG.tileSize, 
 	noWrap: false, 
 	updateWhenIdle: true, // Only load tiles when panning stops
-	keepBuffer: 2 // Don't keep too many tiles in memory
+	updateWhenZooming: false,
+	updateInterval: 10,
+	//keepBuffer: 2 // Don't keep too many tiles in memory
 });
 
 gameLayer.addTo(map);
