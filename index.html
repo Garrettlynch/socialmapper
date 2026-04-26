@@ -142,7 +142,7 @@ fetch('latest.json')
 
 				const shortestPathPoint = map.unproject([currentCenter.x + dx, targetCenter.y], newest.z);
 
-				map.flyTo(newestPoint, newest.z, {
+				map.flyTo(shortestPathPoint, newest.z, {
 					animate: true,
 					duration: 3.0, 
 					easeLinearity: 0.1,
