@@ -72,8 +72,7 @@ var map = L.map('map', {
 	minZoom: CONFIG.minZoom, 
 	maxZoom: CONFIG.maxZoom, 
 	attributionControl: false, 
-	fadeAnimation: true, // fade tiles in
-	worldCopyJump: true // used for wrap-around movement
+	fadeAnimation: true // fade tiles in
 });
 
 // calculate center based on tile size
@@ -128,7 +127,22 @@ fetch('latest.json')
 			map.setView(oldPoint, previous.z);
 
 			setTimeout(() => {
-				map.flyTo(newestPoint.wrap(), newest.z, {
+
+				// CHANGE: Manual shortest-path calculation for wrap-around
+				const worldWidth = CONFIG.worldSize * Math.pow(2, newest.z) * CONFIG.tileSize;
+				const currentCenter = map.project(map.getCenter(), newest.z);
+				const targetCenter = map.project(newestPoint, newest.z);
+
+				let dx = targetCenter.x - currentCenter.x;
+
+				// If the distance is more than half the world width, it's shorter to go the other way
+				if (Math.abs(dx) > worldWidth / 2) {
+					dx = dx > 0 ? dx - worldWidth : dx + worldWidth;
+				}
+
+				const shortestPathPoint = map.unproject([currentCenter.x + dx, targetCenter.y], newest.z);
+
+				map.flyTo(newestPoint, newest.z, {
 					animate: true,
 					duration: 3.0, 
 					easeLinearity: 0.1,
@@ -140,9 +154,10 @@ fetch('latest.json')
 		}
 	})
 	.catch(err => {
+		// fallback if latest.json fails to load
 		const fallback = map.unproject([CONFIG.tileSize / 2, CONFIG.tileSize / 2], 0);
 		map.setView(fallback, 0);
-	});
+    });
 
 L.TileLayer.CustomSync = L.TileLayer.extend({
 	createTile: function(coords, done) {
@@ -171,9 +186,7 @@ L.TileLayer.CustomSync = L.TileLayer.extend({
 				// random images from a set
 				let num = Math.ceil(Math.random() * 10);
 				tile.src = CONFIG.defaultTileURL + num + '.webp';
-
-				// to debug
-				//console.log(tile.src);
+				console.log(tile.src);
 			} else {
 				// if even the default fails, hide it
 				tile.style.visibility = 'hidden';
