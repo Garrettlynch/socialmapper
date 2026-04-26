@@ -68,11 +68,12 @@ const CONFIG = {
 
 // create map
 var map = L.map('map', {
-	crs: L.CRS.Simple, 
+	crs: L.CRS.Simple, // use the simple map
 	minZoom: CONFIG.minZoom, 
 	maxZoom: CONFIG.maxZoom, 
 	attributionControl: false, 
-	fadeAnimation: true
+	fadeAnimation: true, // fade tiles in
+	worldCopyJump: true // used for wrap-around movement
 });
 
 // calculate center based on tile size
@@ -84,7 +85,6 @@ var map = L.map('map', {
 function getTileCenter(z, x, y)
 {
 	// multiply by tileSize to get the pixel center of the tile
-	const scale = Math.pow(2, z); 
 	const centerX = (x + 0.5) * CONFIG.tileSize;
 	const centerY = (y + 0.5) * CONFIG.tileSize;
 
@@ -128,7 +128,7 @@ fetch('latest.json')
 			map.setView(oldPoint, previous.z);
 
 			setTimeout(() => {
-				map.flyTo(newestPoint, newest.z, {
+				map.flyTo(newestPoint.wrap(), newest.z, {
 					animate: true,
 					duration: 3.0, 
 					easeLinearity: 0.1,
@@ -139,7 +139,10 @@ fetch('latest.json')
 			map.setView(newestPoint, newest.z);
 		}
 	})
-
+	.catch(err => {
+		const fallback = map.unproject([CONFIG.tileSize / 2, CONFIG.tileSize / 2], 0);
+		map.setView(fallback, 0);
+	});
 
 L.TileLayer.CustomSync = L.TileLayer.extend({
 	createTile: function(coords, done) {
@@ -168,7 +171,9 @@ L.TileLayer.CustomSync = L.TileLayer.extend({
 				// random images from a set
 				let num = Math.ceil(Math.random() * 10);
 				tile.src = CONFIG.defaultTileURL + num + '.webp';
-				console.log(tile.src);
+
+				// to debug
+				//console.log(tile.src);
 			} else {
 				// if even the default fails, hide it
 				tile.style.visibility = 'hidden';
