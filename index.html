@@ -104,7 +104,7 @@ fetch('latest.json')
 			return;
 		}
 
-		// Ensure coordinates are treated as Numbers, not Strings
+		// ensure coordinates are treated as Numbers, not Strings
 		const newest = {
 			z: Number(data.newest.z),
 			x: Number(data.newest.x),
@@ -115,7 +115,6 @@ fetch('latest.json')
 
 		if (data.previous)
 		{
-			// Convert previous coordinates to Numbers as well
 			const previous = {
 				z: Number(data.previous.z),
 				x: Number(data.previous.x),
@@ -128,19 +127,26 @@ fetch('latest.json')
 
 			setTimeout(() => {
 
-				// CHANGE: Manual shortest-path calculation for wrap-around
+				// calculate dimensions based on the target zoom
 				const worldWidth = CONFIG.worldSize * Math.pow(2, newest.z) * CONFIG.tileSize;
+				const worldHeight = worldWidth; 
+
+				// project current center and target center into pixel space at the target zoom
 				const currentCenter = map.project(map.getCenter(), newest.z);
 				const targetCenter = map.project(newestPoint, newest.z);
 
+				// calculate the distance (delta) for both axes
 				let dx = targetCenter.x - currentCenter.x;
+				let dy = targetCenter.y - currentCenter.y;
 
-				// If the distance is more than half the world width, it's shorter to go the other way
-				if (Math.abs(dx) > worldWidth / 2) {
-					dx = dx > 0 ? dx - worldWidth : dx + worldWidth;
-				}
+				// wrap X: if distance is more than half the world width, take the shortcut
+				if (Math.abs(dx) > worldWidth / 2) dx = dx > 0 ? dx - worldWidth : dx + worldWidth;
 
-				const shortestPathPoint = map.unproject([currentCenter.x + dx, targetCenter.y], newest.z);
+				// wrap Y: apply the same logic to prevent the massive vertical arc
+				if (Math.abs(dy) > worldHeight / 2) dy = dy > 0 ? dy - worldHeight : dy + worldHeight;
+
+				// unproject the relative point to get the spatially closest LatLng
+				const shortestPathPoint = map.unproject([currentCenter.x + dx, currentCenter.y + dy], newest.z);
 
 				map.flyTo(shortestPathPoint, newest.z, {
 					animate: true,
@@ -148,6 +154,7 @@ fetch('latest.json')
 					easeLinearity: 0.1,
 					noMoveStart: true
 				});
+
 			}, 3000);
 		} else {
 			map.setView(newestPoint, newest.z);
